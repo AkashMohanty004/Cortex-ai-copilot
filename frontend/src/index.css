@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cortex-dark: #f8f9fa;
+  --color-cortex-card: #ffffff;
+  --color-cortex-border: #e2e8f0;
+  --color-cortex-copper: #b8673d;
+  --color-cortex-copper-hover: #a55932;
+  --color-cortex-copper-glow: rgba(184, 103, 61, 0.08);
+  --color-cortex-gray-text: #64748b;
+  --color-cortex-green: #10b981;
+  --color-cortex-yellow: #d97706;
+  --color-cortex-red: #dc2626;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-cortex-dark);
+    color: #0f172a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+/* Custom premium industrial grid background - light mode */
+.cortex-grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(15, 23, 42, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.015) 1px, transparent 1px);
+}
+
+.cortex-radial-glow {
+  background: radial-gradient(circle 800px at 50% 200px, rgba(184, 103, 61, 0.03), transparent 80%);
+}
+
+/* Custom Webkit scrollbar for premium look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-cortex-copper);
+}
+
+/* Micro-animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.4; }
+}
+
+.cortex-glow-pulse {
+  animation: pulse-slow 3s infinite;
+}
+
+/* Faint elegant glow classes for light theme */
+.glow-copper {
+  box-shadow: 0 4px 20px rgba(184, 103, 61, 0.08);
+}
+
+.glow-red {
+  box-shadow: 0 4px 20px rgba(220, 38, 38, 0.08);
+}
+
+.glow-yellow {
+  box-shadow: 0 4px 20px rgba(217, 119, 6, 0.08);
+}
+
+.glow-green {
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
+}
