@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
+from google import genai
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.database_models import DocumentChunk

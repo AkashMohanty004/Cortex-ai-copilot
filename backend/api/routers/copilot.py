@@ -1,5 +1,7 @@
 import os
 import logging
+from google import genai
+from click import prompt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -150,9 +152,16 @@ If the information is not in the context, use your engineering knowledge to help
         )
     else:
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(prompt)
-            reply_text = response.text
+            client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
+)
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=prompt,
+)
+
+reply_text = response.text
             
             # Simple heuristic: see if the model output references standard code block or suggest a chart
             if "```" in reply_text:
