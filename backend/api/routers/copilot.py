@@ -1,17 +1,15 @@
 import os
 import logging
 from google import genai
-from click import prompt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from datetime import datetime, timezone
 from typing import List, Optional
-import google.generativeai as genai
 from database.connection import get_db
 from models.database_models import Customer, TelemetryReading, Alert, ChatMessage
 from schemas.api_schemas import ChatRequest, ChatResponse, CitedSource, ChatMessageSchema
-from rag.rag_pipeline import search_relevant_chunks, configure_gemini
+from rag.rag_pipeline import search_relevant_chunks, get_gemini_client
 
 logger = logging.getLogger("cortex.copilot")
 router = APIRouter(prefix="/copilot", tags=["AI Copilot"])
@@ -100,8 +98,6 @@ async def post_copilot_chat(request: ChatRequest, db: AsyncSession = Depends(get
     document_context = ""
     cited_sources = []
     for i, chunk in enumerate(relevant_chunks):
-        # Clean up chunk text formatting
-        chunk_clean = chunk.content.replace('\n', ' ')
         document_context += f"Document Chunk [{i+1}] (Source: {chunk.document_name}):\n{chunk.content}\n\n"
         cited_sources.append(CitedSource(
             document_name=chunk.document_name,
@@ -141,8 +137,8 @@ If the information is not in the context, use your engineering knowledge to help
     code_block = None
 
     # 7. Call Gemini Model
-    gemini_active = configure_gemini()
-    if not gemini_active:
+    client = get_gemini_client()
+    if not client:
         reply_text = (
             "⚠️ **Gemini API Key Missing**: The Cortex AI Copilot requires a Google Gemini API Key to answer questions. "
             "Please provide a valid `GEMINI_API_KEY` in the environment or backend `.env` file to activate natural language processing. "
@@ -152,16 +148,11 @@ If the information is not in the context, use your engineering knowledge to help
         )
     else:
         try:
-            client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
-)
-
-response = client.models.generate_content(
-    model="gemini-2.5-flash",
-    contents=prompt,
-)
-
-reply_text = response.text
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            reply_text = response.text
             
             # Simple heuristic: see if the model output references standard code block or suggest a chart
             if "```" in reply_text:
@@ -235,4 +226,3 @@ async def trigger_reindexing(db: AsyncSession = Depends(get_db)):
             files_indexed += 1
             
     return {"status": "success", "files_indexed": files_indexed}
-

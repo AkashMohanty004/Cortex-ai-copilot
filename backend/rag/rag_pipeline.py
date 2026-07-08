@@ -10,26 +10,24 @@ import docx2txt
 
 logger = logging.getLogger("cortex.rag")
 
-# Configure Gemini API
-def configure_gemini():
+# Helper to initialize the genai Client (thread-safe, stateless)
+def get_gemini_client() -> Optional[genai.Client]:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         logger.warning("GEMINI_API_KEY is not set. Gemini API services will be unavailable.")
-        return False
+        return None
     
-    # If it is an OAuth 2 access token (starts with AQ. or ya29.)
-    if api_key.startswith("AQ.") or api_key.startswith("ya29."):
-        try:
+    try:
+        # If it is an OAuth 2 access token (starts with AQ. or ya29.)
+        if api_key.startswith("AQ.") or api_key.startswith("ya29."):
             from google.oauth2.credentials import Credentials
             creds = Credentials(token=api_key)
-            genai.configure(credentials=creds)
-            return True
-        except Exception as e:
-            logger.error(f"Failed to configure Gemini with OAuth credentials: {e}")
-            return False
-
-    genai.configure(api_key=api_key)
-    return True
+            return genai.Client(credentials=creds)
+        
+        return genai.Client(api_key=api_key)
+    except Exception as e:
+        logger.error(f"Failed to initialize Google GenAI Client: {e}")
+        return None
 
 # Simple recursive text splitter
 def split_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
@@ -67,18 +65,19 @@ def split_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
 
 async def generate_embedding(text: str) -> Optional[List[float]]:
     """Generate text embeddings using Gemini models/gemini-embedding-001 model."""
-    if not configure_gemini():
+    client = get_gemini_client()
+    if not client:
         return None
     try:
-        # Run synchronous SDK call in a thread pool if needed, or directly since it's an API call
-        # For simplicity and correctness:
-        result = genai.embed_content(
+        from google.genai import types
+        response = client.models.embed_content(
             model="models/gemini-embedding-001",
-            content=text,
-            task_type="retrieval_document",
-            output_dimensionality=768
+            contents=text,
+            config=types.EmbedContentConfig(output_dimensionality=768)
         )
-        return result["embedding"]
+        if response.embeddings and len(response.embeddings) > 0:
+            return response.embeddings[0].values
+        return None
     except Exception as e:
         logger.error(f"Error generating embedding from Gemini: {e}")
         return None
@@ -120,10 +119,9 @@ async def index_document(file_path: str, db: AsyncSession) -> Dict[str, Any]:
     for i, chunk in enumerate(chunks):
         embedding = await generate_embedding(chunk)
         if not embedding:
-            # If Gemini API Key is missing, we use a zero-vector so indexing still succeeds for testing
-            # text-embedding-004 has 768 dimensions
+            # If Gemini API Key is missing or invalid, we use a zero-vector so indexing still succeeds for testing
             embedding = [0.0] * 768
-            logger.warning("Using zero-vector embedding for testing because Gemini API key is missing.")
+            logger.warning("Using zero-vector embedding for testing because Gemini API key is missing or invalid.")
             
         doc_chunk = DocumentChunk(
             document_name=doc_name,
@@ -145,7 +143,6 @@ async def search_relevant_chunks(query: str, db: AsyncSession, limit: int = 5) -
         return []
         
     # Query using pgvector cosine_distance
-    # cosine_distance is a method on the column when it's of type Vector
     stmt = select(DocumentChunk).order_by(
         DocumentChunk.embedding.cosine_distance(query_embedding)
     ).limit(limit)
